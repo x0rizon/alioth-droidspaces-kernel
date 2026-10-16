@@ -102,6 +102,18 @@ jobs:
           if [ -f "$GITHUB_WORKSPACE/proton-clang/bin/as" ]; then
             mv "$GITHUB_WORKSPACE/proton-clang/bin/as" "$GITHUB_WORKSPACE/proton-clang/bin/as.bak"
           fi
+          # Mesmo problema para o `ld`: o clang encontra proton-clang/bin/ld
+          # (só x86_64) e falha com `unrecognised emulation mode: aarch64linux`.
+          # Shim `ld`: -maarch64* -> GNU ld aarch64; resto -> ld do sistema.
+          printf '%s\n' '#!/bin/bash' \
+            'case " $* " in' \
+            '  *maarch64*) exec /usr/bin/aarch64-linux-gnu-ld "$@";;' \
+            'esac' \
+            'exec /usr/bin/ld "$@"' > "$GITHUB_WORKSPACE/gas-shim/ld"
+          chmod +x "$GITHUB_WORKSPACE/gas-shim/ld"
+          if [ -f "$GITHUB_WORKSPACE/proton-clang/bin/ld" ]; then
+            mv "$GITHUB_WORKSPACE/proton-clang/bin/ld" "$GITHUB_WORKSPACE/proton-clang/bin/ld.bak"
+          fi
           # scripts/dtc do 4.19 precisa de -fcommon com gcc >= 10 (multiple definition of yylloc)
           export HOSTCFLAGS="-fcommon"
           export ARCH=arm64
