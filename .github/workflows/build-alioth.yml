@@ -85,6 +85,16 @@ jobs:
           set -euxo pipefail
           cd kernel
           export PATH="$GITHUB_WORKSPACE/proton-clang/bin:$PATH"
+          # clang-13 usa um assembler externo e encontra proton-clang/bin/as,
+          # que rejeita -EL. Afasta-o e mete um GNU as aarch64 como `as` no PATH.
+          mkdir -p "$GITHUB_WORKSPACE/gas-shim"
+          ln -sf /usr/bin/aarch64-linux-gnu-as "$GITHUB_WORKSPACE/gas-shim/as"
+          export PATH="$GITHUB_WORKSPACE/gas-shim:$PATH"
+          if [ -f "$GITHUB_WORKSPACE/proton-clang/bin/as" ]; then
+            mv "$GITHUB_WORKSPACE/proton-clang/bin/as" "$GITHUB_WORKSPACE/proton-clang/bin/as.bak"
+          fi
+          # scripts/dtc do 4.19 precisa de -fcommon com gcc >= 10 (multiple definition of yylloc)
+          export HOSTCFLAGS="-fcommon"
           export ARCH=arm64
           export SUBARCH=arm64
           export CC=clang

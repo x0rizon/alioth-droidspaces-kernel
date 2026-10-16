@@ -50,6 +50,8 @@ echo "  (o script não aplica automaticamente porque os patches evoluem; verific
 
 echo "[6/6] A compilar..."
 export PATH="$CLANG_DIR/bin:$PATH"
+# scripts/dtc do 4.19 precisa de -fcommon com gcc >= 10 (multiple definition of yylloc)
+export HOSTCFLAGS="-fcommon"
 export ARCH=arm64
 export SUBARCH=arm64
 export CC=clang
