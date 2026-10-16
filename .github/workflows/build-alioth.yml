@@ -86,9 +86,18 @@ jobs:
           cd kernel
           export PATH="$GITHUB_WORKSPACE/proton-clang/bin:$PATH"
           # clang-13 usa um assembler externo e encontra proton-clang/bin/as,
-          # que rejeita -EL. Afasta-o e mete um GNU as aarch64 como `as` no PATH.
+          # que rejeita -EL. Afasta-o e mete no PATH um `as` que encaminha:
+          # flags de target (-EL) -> GNU as aarch64; flags host (--64/--32) -> as do sistema.
           mkdir -p "$GITHUB_WORKSPACE/gas-shim"
-          ln -sf /usr/bin/aarch64-linux-gnu-as "$GITHUB_WORKSPACE/gas-shim/as"
+          printf '%s\n' '#!/bin/bash' \
+            'for a in "$@"; do' \
+            '  case "$a" in --64|--32) exec /usr/bin/as "$@";; esac' \
+            'done' \
+            'case " $* " in' \
+            '  *" -EL "*) exec /usr/bin/aarch64-linux-gnu-as "$@";;' \
+            'esac' \
+            'exec /usr/bin/aarch64-linux-gnu-as "$@"' > "$GITHUB_WORKSPACE/gas-shim/as"
+          chmod +x "$GITHUB_WORKSPACE/gas-shim/as"
           export PATH="$GITHUB_WORKSPACE/gas-shim:$PATH"
           if [ -f "$GITHUB_WORKSPACE/proton-clang/bin/as" ]; then
             mv "$GITHUB_WORKSPACE/proton-clang/bin/as" "$GITHUB_WORKSPACE/proton-clang/bin/as.bak"
