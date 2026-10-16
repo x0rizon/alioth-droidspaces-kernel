@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: alioth-droidspaces
+Date: Thu, 16 Oct 2026 00:00:00 +0000
+Subject: [PATCH 2/2] lib/string: add stpcpy() for modern clang
+
+Modern clang optimizes some strcpy() call sites (e.g. in
+drivers/tty/tty_io.c) into stpcpy() calls, but 4.19 lib/string.c does
+not provide it, so the vmlinux link fails with:
+  ld.lld: error: undefined symbol: stpcpy
+Backport the trivial implementation (same shape as upstream) instead
+of papering over the transform.
+---
+ include/linux/string.h | 3 +++
+ lib/string.c           | 15 +++++++++++++++
+ 2 files changed, 18 insertions(+)
+
+--- a/lib/string.c
++++ b/lib/string.c
+@@ -96,6 +96,25 @@
+ EXPORT_SYMBOL(strcpy);
+ #endif
+ 
++#ifndef __HAVE_ARCH_STPCPY
++/**
++ * stpcpy - Copy a %NUL terminated string, returning the end
++ * @dest: Where to copy the string to
++ * @src: Where to copy the string from
++ *
++ * Like strcpy(), but returns a pointer to the trailing %NUL instead
++ * of @dest, so callers can append without a second strlen().
++ */
++#undef stpcpy
++char *stpcpy(char *__restrict dest, const char *__restrict src)
++{
++	while ((*dest++ = *src++) != '\0')
++		/* nothing */;
++	return dest - 1;
++}
++EXPORT_SYMBOL(stpcpy);
++#endif
++
+ #ifndef __HAVE_ARCH_STRNCPY
+ /**
+  * strncpy - Copy a length-limited, C-string
+--- a/include/linux/string.h
++++ b/include/linux/string.h
+@@ -22,6 +22,9 @@
+ #ifndef __HAVE_ARCH_STRCPY
+ extern char * strcpy(char *,const char *);
+ #endif
++#ifndef __HAVE_ARCH_STPCPY
++extern char *stpcpy(char *__restrict dest, const char *__restrict src);
++#endif
+ #ifndef __HAVE_ARCH_STRNCPY
+ extern char * strncpy(char *,const char *, __kernel_size_t);
+ #endif

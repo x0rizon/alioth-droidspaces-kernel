@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: alioth-droidspaces
+Date: Thu, 16 Oct 2026 00:00:00 +0000
+Subject: [PATCH 1/2] gsi: drop __packed from helper return type for genksyms
+
+genksyms cannot parse __packed in a function return type, so the CRC
+for gsi_write_channel_scratch is never generated ("version generation
+failed") and ld.lld later errors out with:
+  relocation R_AARCH64_ABS32 cannot be used against symbol
+  __crc_gsi_write_channel_scratch
+BFD ld silently accepts the broken entry. Fix the source spelling
+instead (return type only; parameter and locals untouched).
+
+Reported upstream in MiCode/Xiaomi_Kernel_OpenSource#5382 and #6922.
+---
+ drivers/platform/msm/gsi/gsi.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/platform/msm/gsi/gsi.c b/drivers/platform/msm/gsi/gsi.c
+--- a/drivers/platform/msm/gsi/gsi.c
++++ b/drivers/platform/msm/gsi/gsi.c
+@@ -2651,7 +2651,7 @@
+ 			gsi_ctx->per.ee));
+ }
+
+-static union __packed gsi_channel_scratch __gsi_update_mhi_channel_scratch(
++static union gsi_channel_scratch __gsi_update_mhi_channel_scratch(
+ 	unsigned long chan_hdl, struct __packed gsi_mhi_channel_scratch mscr)
+ {
+ 	union __packed gsi_channel_scratch scr;

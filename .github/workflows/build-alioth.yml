@@ -80,6 +80,16 @@ jobs:
             patch -p1 < "$p"
           done
 
+      - name: Aplicar patches locais (stpcpy, gsi genksyms)
+        run: |
+          set -eux
+          cd kernel
+          for p in ../alioth-droidspaces/patches/*.patch; do
+            echo "=== a aplicar $p ==="
+            patch -p1 --dry-run < "$p"
+            patch -p1 < "$p"
+          done
+
       - name: Compilar kernel
         run: |
           set -euxo pipefail
