@@ -38,9 +38,10 @@ fi
 echo "[4/6] A aplicar fragmento DroidSpaces ao vendor/alioth_user_defconfig..."
 cd "$KERNEL_DIR"
 cp arch/arm64/configs/vendor/alioth_user_defconfig /tmp/alioth_user_defconfig.bak
-./scripts/kconfig/merge_config.sh arch/arm64/configs/vendor/alioth_user_defconfig "$FRAGMENT"
-# Garante ANDROID_PARANOID_NETWORK desligado (doc DroidSpaces)
-sed -i 's/^CONFIG_ANDROID_PARANOID_NETWORK=y/# CONFIG_ANDROID_PARANOID_NETWORK is not set/' .config || true
+# Porta o gcc-wrapper.py para python3 (a árvore traz versão python2, que falha em distros modernas)
+cp "$(dirname "$FRAGMENT")/gcc-wrapper-py3.py" scripts/gcc-wrapper.py
+# Anexa o fragmento ao defconfig (o make defconfig resolve dependências; fluxo validado)
+cat "$FRAGMENT" >> arch/arm64/configs/vendor/alioth_user_defconfig
 
 echo "[5/6] Patches non-GKI (obrigatório, passo 3 do guia)..."
 echo "  Faz download de https://github.com/ravindu644/droidspaces-oss/tree/main/Documentation/resources/kernel-patches/non-GKI"

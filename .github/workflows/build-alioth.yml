@@ -47,16 +47,22 @@ jobs:
           echo "--- patches disponíveis ---"
           ls -R droidspaces-oss/Documentation/resources/kernel-patches/non-GKI/ || true
 
+      - name: Port gcc-wrapper.py para python3
+        run: |
+          set -eux
+          # A árvore traz gcc-wrapper.py em python2 (falha no Ubuntu 22.04).
+          # Esta porta py3 foi testada: defconfig passa e as opções DroidSpaces entram todas.
+          cp alioth-droidspaces/gcc-wrapper-py3.py kernel/scripts/gcc-wrapper.py
+          python3 -c "import py_compile; py_compile.compile('kernel/scripts/gcc-wrapper.py', doraise=True)"
+          echo WRAPPER_OK
+
       - name: Aplicar fragmento DroidSpaces
         run: |
           set -eux
           cd kernel
           cp arch/arm64/configs/vendor/alioth_user_defconfig /tmp/alioth_user_defconfig.bak
-          ./scripts/kconfig/merge_config.sh \
-            arch/arm64/configs/vendor/alioth_user_defconfig \
-            ../alioth-droidspaces/droidspaces-alioth.fragment
-          # Garante ANDROID_PARANOID_NETWORK desligado
-          sed -i 's/^CONFIG_ANDROID_PARANOID_NETWORK=y/# CONFIG_ANDROID_PARANOID_NETWORK is not set/' .config || true
+          # Anexa ao defconfig (o make defconfig resolve dependências; validado localmente).
+          cat ../alioth-droidspaces/droidspaces-alioth.fragment >> arch/arm64/configs/vendor/alioth_user_defconfig
 
       - name: Aplicar patches non-GKI
         run: |
