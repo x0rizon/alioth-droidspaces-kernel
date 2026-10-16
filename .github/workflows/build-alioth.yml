@@ -1,0 +1,128 @@
+name: Build alioth kernel (DroidSpaces)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'alioth-droidspaces/**'
+      - '.github/workflows/build-alioth.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+    steps:
+      - name: Checkout (fragmento + workflow)
+        uses: actions/checkout@v4
+
+      - name: Instalar dependências
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            git-core gnupg flex bison build-essential zip curl \
+            zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 \
+            libncurses5-dev lib32ncurses5-dev \
+            x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev \
+            libxml2-utils xsltproc unzip fontconfig python3 \
+            rsync cpio libssl-dev bc ccache \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+          git --version
+          python3 --version
+
+      - name: Clonar kernel Xiaomi (alioth-r-oss, 4.19)
+        run: |
+          set -eux
+          git clone --depth=1 -b alioth-r-oss \
+            https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git kernel
+
+      - name: Clonar Proton Clang
+        run: |
+          set -eux
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git proton-clang
+
+      - name: Clonar DroidSpaces (patches non-GKI)
+        run: |
+          set -eux
+          git clone --depth=1 https://github.com/ravindu644/droidspaces-oss.git droidspaces-oss
+          echo "--- patches disponíveis ---"
+          ls -R droidspaces-oss/Documentation/resources/kernel-patches/non-GKI/ || true
+
+      - name: Aplicar fragmento DroidSpaces
+        run: |
+          set -eux
+          cd kernel
+          cp arch/arm64/configs/vendor/alioth_user_defconfig /tmp/alioth_user_defconfig.bak
+          ./scripts/kconfig/merge_config.sh \
+            arch/arm64/configs/vendor/alioth_user_defconfig \
+            ../alioth-droidspaces/droidspaces-alioth.fragment
+          # Garante ANDROID_PARANOID_NETWORK desligado
+          sed -i 's/^CONFIG_ANDROID_PARANOID_NETWORK=y/# CONFIG_ANDROID_PARANOID_NETWORK is not set/' .config || true
+
+      - name: Aplicar patches non-GKI
+        run: |
+          set -eux
+          cd kernel
+          shopt -s nullglob
+          PATCHES=(../droidspaces-oss/Documentation/resources/kernel-patches/non-GKI/*.patch)
+          if [ ${#PATCHES[@]} -eq 0 ]; then
+            echo "AVISO: nenhuma patch encontrada em non-GKI; a continuar sem patches."
+            exit 0
+          fi
+          for p in "${PATCHES[@]}"; do
+            echo "=== a aplicar $p ==="
+            patch -p1 --dry-run < "$p"
+            patch -p1 < "$p"
+          done
+
+      - name: Compilar kernel
+        run: |
+          set -eux
+          cd kernel
+          export PATH="$GITHUB_WORKSPACE/proton-clang/bin:$PATH"
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export CC=clang
+          export LD=ld.lld
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          export CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+          make O=out ARCH=arm64 vendor/alioth_user_defconfig
+          make -j"$(nproc --all)" O=out ARCH=arm64 \
+            CC=clang LD=ld.lld \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
+            Image.gz dtbo.img 2>&1 | tee build.log
+
+      - name: Verificar opções DroidSpaces no .config
+        run: |
+          set -eux
+          CFG=kernel/out/.config
+          fail=0
+          for c in CONFIG_PID_NS CONFIG_NET_NS CONFIG_SECCOMP CONFIG_CGROUPS \
+                   CONFIG_VETH CONFIG_BRIDGE CONFIG_DEVTMPFS CONFIG_OVERLAY_FS \
+                   CONFIG_USER_NS CONFIG_MEMCG CONFIG_IPC_NS CONFIG_UTS_NS; do
+            if grep -q "^$c=y" "$CFG"; then echo "OK $c"; else echo "FALTA $c"; fail=1; fi
+          done
+          if grep -q "^CONFIG_ANDROID_PARANOID_NETWORK=y" "$CFG"; then echo "ERRO: PARANOID_NETWORK ligado"; fail=1; fi
+          exit $fail
+
+      - name: Recolher artefactos
+        run: |
+          set -eux
+          mkdir -p dist
+          cp -v kernel/out/arch/arm64/boot/Image.gz dist/ || true
+          cp -v kernel/out/arch/arm64/boot/dtbo.img dist/ || true
+          cp -v kernel/out/.config dist/alioth-droidspaces.config || true
+          cp -v kernel/build.log dist/ || true
+          ls -lh dist/
+
+      - name: Upload artefactos
+        uses: actions/upload-artifact@v4
+        with:
+          name: alioth-droidspaces-kernel
+          path: dist/
+          if-no-files-found: error
