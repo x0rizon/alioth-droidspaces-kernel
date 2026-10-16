@@ -59,11 +59,16 @@ export CROSS_COMPILE=aarch64-linux-android-
 export CROSS_COMPILE_ARM32=arm-linux-androideabi-
 
 make O=out ARCH=arm64 vendor/alioth_user_defconfig
+# Resolve novos símbolos sem perguntas interativas
+make O=out ARCH=arm64 olddefconfig
+# Nota: esta árvore não tem target dtbo.img; o dtbo stock é reutilizado no flash.
+set -o pipefail
 make -j"$JOBS" O=out ARCH=arm64 CC=clang LD=ld.lld \
   CLANG_TRIPLE=aarch64-linux-gnu- \
   CROSS_COMPILE=aarch64-linux-android- \
   CROSS_COMPILE_ARM32=arm-linux-androideabi- \
-  Image.gz dtbo.img 2>&1 | tee build.log
+  Image.gz 2>&1 | tee build.log
+test -f out/arch/arm64/boot/Image.gz
 
 echo
 echo "OK! Artefactos em $KERNEL_DIR/out/arch/arm64/boot/"
