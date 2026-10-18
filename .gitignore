@@ -1,2 +1,12 @@
 __pycache__/
 *.pyc
+# ZIPs de release (vão para Releases, não para o git)
+*.zip
+# Diretórios de build local / CI — nunca commitar
+kernel/
+proton-clang/
+droidspaces-oss/
+out/
+dist/
+gas-shim/
+build.log

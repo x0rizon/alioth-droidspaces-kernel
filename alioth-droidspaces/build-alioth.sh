@@ -42,6 +42,12 @@ cp arch/arm64/configs/vendor/alioth_user_defconfig /tmp/alioth_user_defconfig.ba
 cp "$(dirname "$FRAGMENT")/gcc-wrapper-py3.py" scripts/gcc-wrapper.py
 # Anexa o fragmento ao defconfig (o make defconfig resolve dependências; fluxo validado)
 cat "$FRAGMENT" >> arch/arm64/configs/vendor/alioth_user_defconfig
+# Patches locais (compatibilidade com toolchains modernas; mesmos que o CI aplica)
+for p in "$(dirname "$FRAGMENT")"/patches/*.patch; do
+  echo "  === a aplicar $p ==="
+  patch -p1 --dry-run < "$p"
+  patch -p1 < "$p"
+done
 
 echo "[5/6] Patches non-GKI (obrigatório, passo 3 do guia)..."
 echo "  Faz download de https://github.com/ravindu644/droidspaces-oss/tree/main/Documentation/resources/kernel-patches/non-GKI"

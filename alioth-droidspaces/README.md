@@ -16,7 +16,8 @@ Não há risco de bootloop por kABI como nos GKI 5.4+ — basta ligar as opçõe
 1. Faz push desta pasta + `.github/workflows/build-alioth.yml` para o teu GitHub.
 2. Vai a **Actions → Build alioth kernel (DroidSpaces) → Run workflow**.
 3. No fim, descarrega o artefacto `alioth-droidspaces-kernel`:
-   `Image.gz`, `dtbo.img`, `alioth-droidspaces.config`, `build.log`.
+   `Image.gz`, `alioth-droidspaces.config`, `build.log`.
+   (Esta árvore não gera `dtbo.img` — o flash reutiliza o dtbo stock da ROM.)
 4. Empacota com AnyKernel3 para alioth e faz flash.
 
 O workflow usa Proton Clang + GCC Ubuntu, aplica o fragmento,
@@ -52,6 +53,7 @@ Se já existir kernel pronto para alioth, usa-o e poupa o build.
 - Fonte oficial: `MiCode/Xiaomi_Kernel_OpenSource`, branch `alioth-r-oss`.
 - Não uses `alioth_defconfig` nessa árvore — o nome correto é `vendor/alioth_user_defconfig`.
 - Toolchain fiel à árvore: Clang r377782c (`CC=clang`, `LD=ld.lld`).
-  Proton Clang funciona como alternativa, mas não é a mais fiel ao build Xiaomi.
+  O workflow CI usa Proton Clang com shims `as`/`ld` (ver `build-alioth.yml`);
+  localmente podes usar qualquer um dos dois.
 - KVM / Binder / ashmem **não** são requisitos do DroidSpaces — é runtime LXC-like
   (namespaces + cgroups + seccomp + rede NAT), não VM.
